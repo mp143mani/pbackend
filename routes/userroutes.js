@@ -1,23 +1,23 @@
-var express = require("express");
-var router = express.Router();
-const { mongoose, usersModel } = require("../dbSchema");
-const { mongodb, dbName, dbUrl,MongoClient } = require("../dbConfig");
+const express = require("express");
+const router = express.Router();
+const { mongoose, usersModel } = require("../DatabaseSchema");
+const { mongodb, dbName, dbUrl, MongoClient } = require("../Databse");
 const {
   hashPassowrd,
   hashCompare,
   createToken,
   jwtDecode,
   validate,
-  authenticate
+  authenticate,
 } = require("../auth");
 mongoose.connect(dbUrl);
-var nodemailer = require('nodemailer');
+const nodemailer = require("nodemailer");
 const { render } = require("jade");
 const { token } = require("morgan");
-const client = new MongoClient(dbUrl)
+const client = new MongoClient(dbUrl);
 
-let emailStorage=[];
-let emailStorageAdmin =[];
+let emailStorage = [];
+let emailStorageAdmin = [];
 
 router.post("/signup", async (req, res) => {
   try {
@@ -45,57 +45,58 @@ router.post("/signup", async (req, res) => {
 router.post("/signin", async (req, res) => {
   try {
     let user = await usersModel.find({ email: req.body.email });
-    emailStorage.push(req.body.email)
-        
+    emailStorage.push(req.body.email);
+
     if (user.length) {
       let hash = await hashCompare(req.body.password, user[0].password);
 
       if (hash) {
         // let token = await createToken(user[0].email, user[0].role);
-        let token = await createToken(user[0].email, user[0].role, user[0].batch);
+        let token = await createToken(
+          user[0].email,
+          user[0].role,
+          user[0].batch
+        );
 
         res.send({ statusCode: 200, message: "Sign-in successfull!!!", token });
-      } 
-      else res.send({ statusCode: 400, message: "Invalid Credentials" });
-      
-
-    } 
-    else res.send({ statusCode: 400, message: "User does not exists" });
+      } else res.send({ statusCode: 400, message: "Invalid Credentials" });
+    } else res.send({ statusCode: 400, message: "User does not exists" });
   } catch (error) {
     console.log(error);
     res.send({ statusCode: 400, message: "Internal Server Error", error });
   }
 });
 
-
-router.post('/reset-password', async(req,res)=>{
+router.post("/reset-password", async (req, res) => {
   //verify the email exist and create a JWT and send the pwd reset link to that persons email
   await client.connect();
-  try{
+  try {
     const db = client.db(dbName);
-    let user = await db.collection("users").findOne({email:req.body.email});
+    let user = await db.collection("users").findOne({ email: req.body.email });
     // console.log(user)
 
-    if(user){
+    if (user) {
       // console.log(user)
-        let token = await createToken({email:user.email, role :user.role});
-        // console.log(token)
-      let userUpdate=await db.collection("users").updateOne({email:user.email},{$set:{token:token}});
+      let token = await createToken({ email: user.email, role: user.role });
+      // console.log(token)
+      let userUpdate = await db
+        .collection("users")
+        .updateOne({ email: user.email }, { $set: { token: token } });
       // console.log(userUpdate)
       res.json({
-        message:"sent"
-      })
-    var transporter = nodemailer.createTransport({
+        message: "sent",
+      });
+      const transporter = nodemailer.createTransport({
         service: "gmail",
         auth: {
-          user: "manifun51@gmail.com",
+          user: "mani143tech@gmail.com",
           pass: "mani1234",
         },
       });
 
-      var mailOptions = {
-        from: "manifun51@gmail.com",
-        to:  user.email,
+      const mailOptions = {
+        from: "mani143tech@gmail.com",
+        to: user.email,
         subject: "Password Reset",
         text: "That was easy!",
         html: `<div>
@@ -114,74 +115,70 @@ router.post('/reset-password', async(req,res)=>{
           console.log("Email sent: " + info.response);
         }
       });
-    }
-    else{
+    } else {
       res.json({
-        message:"Invalid User"
-      })
+        message: "Invalid User",
+      });
     }
-  }
-  catch(error){
+  } catch (error) {
     console.log(error);
-        res.sendStatus(400);
-  }
-  finally{
+    res.sendStatus(400);
+  } finally {
     client.close();
   }
-})
+});
 
-router.get('/update-password/:token', async(req,res,next)=>{
- const {token} =req.params
-  try{
-    res.render("update-password")}
-  catch(error)
-  { console.log(error);
-    res.sendStatus(500);}
-})
+router.get("/update-password/:token", async (req, res, next) => {
+  const { token } = req.params;
+  try {
+    res.render("update-password");
+  } catch (error) {
+    console.log(error);
+    res.sendStatus(500);
+  }
+});
 
-
-router.post('/update-password/:token', async(req,res,next)=>{
-  const {token} =req.params;
+router.post("/update-password/:token", async (req, res, next) => {
+  const { token } = req.params;
   // console.log("Toks",token)
-  const{password, password2} =req.body
+  const { password, password2 } = req.body;
   // console.log(password2,password)
 
-// get the new password and change the password in the db. The email should be decoded from the jwt sent from front end
+  // get the new password and change the password in the db. The email should be decoded from the jwt sent from front end
   await client.connect();
-  const mail = await authenticate(token);//authenticating the token and decoding the email address
+  const mail = await authenticate(token); //authenticating the token and decoding the email address
   // console.log(mail)
-const email =mail.email
-console.log(email)
-  if(email || password === password2){
+  const email = mail.email;
+  console.log(email);
+  if (email || password === password2) {
     try {
       const db = client.db(dbName);
-      let user = await db.collection("users").findOne({email:email});
+      let user = await db.collection("users").findOne({ email: email });
       // console.log(user)
-      if(user && user.token===token){
-        
-          const hash = await hashPassowrd(password);
-          let doc = await db.collection("users").updateOne({email:email},{$set:{password:hash,token:""}})//change the pwd in db and delete the token
-          
-          res.json({
-            message:"Password Updated Successfully"
-          })
-        }
-      else{
+      if (user && user.token === token) {
+        const hash = await hashPassowrd(password);
+        let doc = await db
+          .collection("users")
+          .updateOne({ email: email }, { $set: { password: hash, token: "" } }); //change the pwd in db and delete the token
+
         res.json({
-          message:"Link Invalid"
-        })
+          message: "Password Updated Successfully",
+        });
+      } else {
+        res.json({
+          message: "Link Invalid",
+        });
       }
     } catch (error) {
       console.log(error);
       res.sendStatus(500);
     }
-  }
-  else{
+  } else {
     res.json({
-      message:"Link Expired"
-    })
+      message: "Link Expired",
+    });
   }
-  })
+});
 
 //     router.get('/getRole/:email',async(req,res)=>{
 //       const { email } = req.params;
@@ -259,7 +256,6 @@ console.log(email)
 // }
 //  })
 
-
 //  //Update student by Cordi
 //  router.get('/getUpStuData/:id',async(req,res)=>{
 //   try {
@@ -267,7 +263,7 @@ console.log(email)
 //     // console.log(user)
 //     if(user)
 //     {
-      
+
 //       res.send(user)
 //       }
 //     else
@@ -283,7 +279,7 @@ console.log(email)
 //     let user = await usersModel.findOne({_id:mongodb.ObjectId(req.params.id)})
 //     // console.log(user)
 //     if(user)
-//     {   
+//     {
 //        user.firstName =req.body.firstName
 //       user.lastName =req.body.lastName
 //       user.mobileNumber =req.body.mobileNumber
@@ -309,7 +305,7 @@ console.log(email)
 //     // console.log(user)
 //     if(user)
 //     {
-      
+
 //       res.send(user)
 //       }
 //     else
@@ -325,7 +321,7 @@ console.log(email)
 //     let user = await usersModel.findOne({_id:mongodb.ObjectId(req.params.id)})
 //     // console.log(user)
 //     if(user)
-//     {   
+//     {
 //        user.firstName =req.body.firstName
 //       user.lastName =req.body.lastName
 //       user.mobileNumber =req.body.mobileNumber
@@ -351,7 +347,7 @@ console.log(email)
 //     // console.log(user)
 //     if(user)
 //     {
-      
+
 //       res.send(user)
 //       }
 //     else
@@ -367,7 +363,7 @@ console.log(email)
 //     let user = await usersModel.findOne({_id:mongodb.ObjectId(req.params.id)})
 //     // console.log(user)
 //     if(user)
-//     {   
+//     {
 //        user.firstName =req.body.firstName
 //       user.lastName =req.body.lastName
 //       user.mobileNumber =req.body.mobileNumber
@@ -385,6 +381,5 @@ console.log(email)
 //     res.send({statusCode:400,message:"Internal Server Error",error})
 //   }
 // })
-
 
 module.exports = router;

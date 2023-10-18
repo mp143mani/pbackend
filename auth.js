@@ -4,7 +4,7 @@ const saltRound = 10;
 const secretKey = "PoINjnLK89$#!Nnjsdk!@%";
 const JWTD = require("jwt-decode");
 
-//hashed password generation
+
 let hashPassowrd = async (password) => {
   let salt = await bcrypt.genSalt(saltRound);
   let hashedPassword = await bcrypt.hash(password, salt);
@@ -15,55 +15,45 @@ let hashCompare = async (password, hashedPassword) => {
   return bcrypt.compare(password, hashedPassword);
 };
 
-let createToken = async (email,  batch) => {
-  let token = await jwt.sign({ email,  batch }, secretKey, { expiresIn: "2h" });
+let createToken = async (email, batch) => {
+  let token = await jwt.sign({ email, batch }, secretKey, { expiresIn: "2h" });
   return token;
 };
 
 let jwtDecode = async (token) => {
   let data = await jwt.decode(token);
-  console.log(data)
+  console.log(data);
   return data;
 };
 
 
-
-//token validation
 let validate = async (req, res, next) => {
-  if(req.headers && req.headers.authorization)
-  {
-  let token = req.headers.authorization.split(" ")[1];
-  let data = await jwtDecode(token);
-  let currentTime = Math.round(new Date() / 1000);
-  if (currentTime <= data.exp) next();
-  else
+  if (req.headers && req.headers.authorization) {
+    let token = req.headers.authorization.split(" ")[1];
+    let data = await jwtDecode(token);
+    let currentTime = Math.round(new Date() / 1000);
+    if (currentTime <= data.exp) next();
+    else
+      res.send({
+        stausCode: 401,
+        message: "Token Expired",
+      });
+  } else {
     res.send({
-      stausCode: 401,
-      message: "Token Expired",
+      statusCode: 401,
+      message: "Invalid Token or no token",
     });
-  }
-  else{
-    res.send({
-      statusCode:401,
-      message:"Invalid Token or no token"
-    })
   }
 };
 
-
-
-const authenticate = async(token)=>{
+const authenticate = async (token) => {
   const decode = JWTD(token);
-  if(Math.round(new Date() / 1000) <= decode.exp){
-      return decode.email;
+  if (Math.round(new Date() / 1000) <= decode.exp) {
+    return decode.email;
+  } else {
+    return "";
   }
-  else{
-      return "";
-  }
-}
-
-
-
+};
 
 module.exports = {
   hashPassowrd,
@@ -71,5 +61,5 @@ module.exports = {
   createToken,
   jwtDecode,
   validate,
-  authenticate
+  authenticate,
 };

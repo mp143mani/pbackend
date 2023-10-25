@@ -4,7 +4,6 @@ const saltRound = 10;
 const secretKey = "PoINjnLK89$#!Nnjsdk!@%";
 const JWTD = require("jwt-decode");
 
-
 let hashPassowrd = async (password) => {
   let salt = await bcrypt.genSalt(saltRound);
   let hashedPassword = await bcrypt.hash(password, salt);
@@ -26,7 +25,6 @@ let jwtDecode = async (token) => {
   return data;
 };
 
-
 let validate = async (req, res, next) => {
   if (req.headers && req.headers.authorization) {
     let token = req.headers.authorization.split(" ")[1];
@@ -41,7 +39,7 @@ let validate = async (req, res, next) => {
   } else {
     res.send({
       statusCode: 401,
-      message: "Invalid Token or no token",
+      message: "Invalid Token ",
     });
   }
 };
